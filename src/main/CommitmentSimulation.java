@@ -34,11 +34,8 @@ public class CommitmentSimulation {
 				}
 			}
 			sum += iterations;
-			System.out.println("Found a match after " + iterations + " iterations.");
+			System.out.println("Found a match after trying " + iterations + " different commitments.");
 		}
-		
-		
-		
 		
 		
 		double avg = sum/iter;
