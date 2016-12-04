@@ -1,5 +1,6 @@
 package main;
 
+import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
@@ -7,13 +8,15 @@ import java.util.Random;
 
 public class CommitmentSimulation {
 	private MessageDigest md;
-	private int x;
+	public int x;
 
 	private int vAlice;
 	private int kAlice;
 	private int nbrConcealed;
+	public double bindingProb;
+	public double concealingProb;
 
-	//int x is the number of bytes we remove when we truncate. 
+	//int x is the number of bits left after truncation.
 	public CommitmentSimulation(int x) {
 		try {
 			md = MessageDigest.getInstance("SHA-1");
@@ -23,11 +26,11 @@ public class CommitmentSimulation {
 		this.x = x;
 		nbrConcealed = 0;
 
-		breakBinding(1000);
+		bindingProb = breakBinding(400);
 		
-		breakConcealing(1000);
+		concealingProb = breakConcealing(400);
 
-		System.out.println(nbrConcealed + " votes are still concealed out of 1000 when we truncate " + x + " bytes of 20");
+		System.out.println(nbrConcealed + " votes are still concealed out of 100 when we truncate to " + x + " bits");
 
 	}
 
@@ -35,16 +38,20 @@ public class CommitmentSimulation {
 		// We try to break the binding property of iteration-nbr of commitments
 		int iter = iterations;
 		double broken = 0;
-		for (int i = 0; i < iter; i++) {
+		System.out.println("Number of binding simulations (" + x + " bits): ");
+		for (int i = 1; i <= iter; i++) {
 			if (bindingSimulation()) {
 				broken++;
 				//System.out.println(broken + " broken, " + i + " tried.");
 			}
-			// System.out.println("Found a match after trying " + iterations +
-			// " different commitments.");
+			System.out.print(i + ", ");
+			if(i%10==0) {
+				System.out.println("");
+			}
+			
 		}
 		double prob = broken / iter;
-		System.out.println("Probability of being able to break binding " + prob + " when we truncate " + x +" bytes of 20");
+		
 		return prob;
 	}
 
@@ -53,19 +60,22 @@ public class CommitmentSimulation {
 		int iterC = iterations;
 		double brokenC = 0;
 		Random r = new Random();
-		
+		System.out.println("Number of concealing simulations (" + x + " bits): ");
 		for (int j = 1; j <= iterC; j++) {
 			if (concealingSimulation(r.nextInt(2))) {
 				brokenC++;
 				//System.out.println(brokenC + " disclosed, " + j + " tried.");
 			}
+			System.out.print(j + ", ");
+			if(j%10==0) {
+				System.out.println("");
+			}
 			// System.out.println("Found a match after trying " + iterations +
 			// " different commitments.");
 		}
-		
+		System.out.println("");
 		double probC = brokenC / iterC;
-		System.out.println("Probability of being able to break concealing is "
-				+ probC + " when we truncate " + x + " bytes of 20");
+		
 		return probC;
 	}
 
@@ -87,16 +97,10 @@ public class CommitmentSimulation {
 			temp2 = z + temp2;
 		}
 		String toHash = temp1 + temp2;
-		// System.out.println("Det här är " + toHash.length() + " st bitar: " +
-		// toHash);
-		// System.out.println("This number should start with 0: " + toHash);
 		md.reset();
 		md.update(toHash.getBytes());
 		byte[] commitment = md.digest();
-		byte[] truncCommit = new byte[20 - x];
-		for (int i = 0; i < 20 - x; i++) {
-			truncCommit[i] = commitment[i];
-		}
+		String commitmentString = makeBitStringAndTrunc(commitment, x);
 		// System.out.println("Commitment length: " + truncCommit.length);
 
 		// Start to break commitment. AKA find a (0,kBreakBinding) that gives
@@ -128,25 +132,10 @@ public class CommitmentSimulation {
 			md.reset();
 			md.update(toHashGuess.getBytes());
 			byte[] guess = md.digest();
-			byte[] truncGuess = new byte[20 - x];
-			for (int j = 0; j < 20 - x; j++) {
-				truncGuess[j] = guess[j];
-			}
-			if (Arrays.equals(truncGuess, truncCommit)) {
+			String guessString = makeBitStringAndTrunc(guess, x);
+			if (guessString.equals(commitmentString)) {
 				go = false;
 				return true;
-
-				// System.out.println("DONE!");
-				// //System.out.println("Was supposed to match: (" +
-				// toHashGuess.length() + " bits) : " + toHash);
-				// System.out.println("Guess hash: ");
-				// printByteArray(guess);
-				//
-				// System.out.println("TruncGuess hash: ");
-				// printByteArray(truncGuess);
-				//
-				// System.out.println("Commit hash: ");
-				// printByteArray(commitment);
 
 			} else if (kBreakBinding > 65534) {
 				go = false;
@@ -180,10 +169,10 @@ public class CommitmentSimulation {
 		md.reset();
 		md.update(toHash.getBytes());
 		byte[] commitment = md.digest();
-		byte[] truncCommit = new byte[20 - x];
-		for (int i = 0; i < 20 - x; i++) {
-			truncCommit[i] = commitment[i];
-		}
+		
+		//Make bit-string of commitment
+		String commitmentString = makeBitStringAndTrunc(commitment, x);
+		
 
 		// truncCommit is sent from Alice to Bob. Now bob will try to find out
 		// if Alice voted 1 och 0.
@@ -214,12 +203,9 @@ public class CommitmentSimulation {
 			md.reset();
 			md.update(toHashGuess.getBytes());
 			byte[] guess = md.digest();
-			byte[] truncGuess = new byte[20 - x];
-			for (int j = 0; j < 20 - x; j++) {
-				truncGuess[j] = guess[j];
-			}
-
-			if (Arrays.equals(truncGuess, truncCommit)) {
+			String guessString = makeBitStringAndTrunc(guess, x);
+			
+			if (guessString.equals(commitmentString)) {
 				
 				if(vBreakConcealing == 0) {
 					v0solution = true;
@@ -271,14 +257,39 @@ public class CommitmentSimulation {
 		System.out.println("");
 	}
 
+	private String makeBitStringAndTrunc(byte[] array, int x) {
+		int bytesTrim = x/8 + 1;
+		String commitmentString = "";
+		for (int i = 0; i < bytesTrim; i++) {
+			String s = String.format("%8s", Integer.toBinaryString(array[i] & 0xFF)).replace(' ', '0');
+			commitmentString += s;
+		}
+		return commitmentString.substring(0, x);
+	}
+	
+	
 	public static void main(String args[]) {
 		// K is fixed at 16 bits, V is one bit
 		// We need a byte array to put in the hash function.
 		// The first bit in that byte array is the V and the 16 subsequent bits
 		// represent the random number k
-		CommitmentSimulation cs = new CommitmentSimulation(19);
-		CommitmentSimulation cs1 = new CommitmentSimulation(18);
-		CommitmentSimulation cs2 = new CommitmentSimulation(17);
-		CommitmentSimulation cs3 = new CommitmentSimulation(16);
+		CommitmentSimulation cs = new CommitmentSimulation(14);
+		CommitmentSimulation cs1 = new CommitmentSimulation(15);
+		CommitmentSimulation cs2 = new CommitmentSimulation(16);
+		CommitmentSimulation cs3 = new CommitmentSimulation(17);
+		CommitmentSimulation cs4 = new CommitmentSimulation(18);
+		
+		System.out.println("");
+		System.out.println("Stats time:");
+		System.out.println("P(bindingBreak) = " + cs.bindingProb + ", P(concealingBreak) =  " + cs.concealingProb 
+				+ " when truncated to " + cs.x + " bits.");
+		System.out.println("P(bindingBreak) = " + cs1.bindingProb + ", P(concealingBreak) =  " + cs1.concealingProb 
+				+ " when truncated to " + cs1.x + " bits.");
+		System.out.println("P(bindingBreak) = " + cs2.bindingProb + ", P(concealingBreak) =  " + cs2.concealingProb 
+				+ " when truncated to " + cs2.x + " bits.");
+		System.out.println("P(bindingBreak) = " + cs3.bindingProb + ", P(concealingBreak) =  " + cs3.concealingProb 
+				+ " when truncated to " + cs3.x + " bits.");
+		System.out.println("P(bindingBreak) = " + cs4.bindingProb + ", P(concealingBreak) =  " + cs4.concealingProb 
+				+ " when truncated to " + cs4.x + " bits.");
 	}
 }
