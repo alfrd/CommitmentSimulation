@@ -62,7 +62,7 @@ public class CommitmentSimulation {
 		Random r = new Random();
 		System.out.println("Number of concealing simulations (" + x + " bits): ");
 		for (int j = 1; j <= iterC; j++) {
-			if (concealingSimulation(r.nextInt(2))) {
+			if (concealingSimulation()) {
 				brokenC++;
 				//System.out.println(brokenC + " disclosed, " + j + " tried.");
 			}
@@ -82,7 +82,7 @@ public class CommitmentSimulation {
 	private boolean bindingSimulation() {
 		// Alice creates commitment
 		Random rand = new Random();
-		vAlice = 0;
+		vAlice = rand.nextInt(2);
 		kAlice = rand.nextInt(65536);
 		String temp1 = Integer.toBinaryString(vAlice);
 		String temp2 = Integer.toBinaryString(kAlice);
@@ -148,10 +148,10 @@ public class CommitmentSimulation {
 
 	//returns false if the vote is still concealed
 	//returns true if the vote is disclosed
-	private boolean concealingSimulation(int v) {
+	private boolean concealingSimulation() {
 		// Alice creates commitment
 		Random rand = new Random();
-		int vAliceC = v;
+		int vAliceC = rand.nextInt(2);
 		int kAliceC = rand.nextInt(65536);
 		String temp1 = Integer.toBinaryString(vAliceC);
 		String temp2 = Integer.toBinaryString(kAliceC);
